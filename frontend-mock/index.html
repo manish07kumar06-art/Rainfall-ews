@@ -26,11 +26,15 @@
 <script>
 // Backend address: http://localhost:8000 by default, or add ?api=https://your-backend.onrender.com
 const API = new URLSearchParams(location.search).get("api") || "http://localhost:8000";
-const RISK_COLORS = ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"];
+const RISK_COLORS = ["#2ecc71", "#f1c40f", "#e67e22", "#c0392b"];
+const RISK_OPACITY = [0.06, 0.35, 0.6, 0.85];
 const FLOOD_COLORS = { low: "#9ecae1", medium: "#3182bd", high: "#08306b" };
 
 const map = L.map("map").setView([19.1, 72.9], 10);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+  attribution: "Tiles &copy; Esri",
+  maxZoom: 19,
+}).addTo(map);
 let riskLayer, floodLayer, timeline;
 
 async function show(h) {
@@ -43,11 +47,11 @@ async function show(h) {
   riskLayer = L.geoJSON(risk, {
     style: f => ({ color: "#555", weight: 0.5,
       fillColor: RISK_COLORS[f.properties.risk_level],
-      fillOpacity: f.properties.risk_level === 0 ? 0.08 : 0.45 }),
+      fillOpacity: RISK_OPACITY[f.properties.risk_level] }),
   }).bindTooltip(l => `Rain (3h): ${l.feature.properties.rain_mm_3h} mm`).addTo(map);
   floodLayer = L.geoJSON(flood, {
-    style: f => ({ color: FLOOD_COLORS[f.properties.depth_class], weight: 1,
-      fillColor: FLOOD_COLORS[f.properties.depth_class], fillOpacity: 0.7 }),
+    style: f => ({ color: FLOOD_COLORS[f.properties.depth_class], weight: 3,
+      fillOpacity: 0, dashArray: f.properties.depth_class === "high" ? null : "4" }),
   }).addTo(map);
   const t = timeline.hours[h];
   document.getElementById("label").textContent =
