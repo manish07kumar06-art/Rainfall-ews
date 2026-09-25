@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "hour": 19, "mock": true, "features": [{"type": "Feature", "properties": {"depth_class": "medium"}, "geometry": {"type": "Polygon", "coordinates": [[[72.856, 19.106], [72.89399999999999, 19.106], [72.89399999999999, 19.144000000000002], [72.856, 19.144000000000002], [72.856, 19.106]]]}}]}

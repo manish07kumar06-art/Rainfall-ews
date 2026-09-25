@@ -1,0 +1,397 @@
+{
+ "region": "Mumbai (demo box)",
+ "event": "Replay of heavy-rain event, 17-18 Jul 2021",
+ "bbox": [
+  72.75,
+  18.9,
+  73.05,
+  19.3
+ ],
+ "mock": true,
+ "hours": [
+  {
+   "hour": 0,
+   "time": "2021-07-17T00:00:00",
+   "max_rain_mm_3h": 0.0,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 1,
+   "time": "2021-07-17T01:00:00",
+   "max_rain_mm_3h": 0.0,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 2,
+   "time": "2021-07-17T02:00:00",
+   "max_rain_mm_3h": 0.0,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 3,
+   "time": "2021-07-17T03:00:00",
+   "max_rain_mm_3h": 0.1,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 4,
+   "time": "2021-07-17T04:00:00",
+   "max_rain_mm_3h": 0.1,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 5,
+   "time": "2021-07-17T05:00:00",
+   "max_rain_mm_3h": 0.2,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 6,
+   "time": "2021-07-17T06:00:00",
+   "max_rain_mm_3h": 0.3,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 7,
+   "time": "2021-07-17T07:00:00",
+   "max_rain_mm_3h": 0.4,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 8,
+   "time": "2021-07-17T08:00:00",
+   "max_rain_mm_3h": 0.7,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 9,
+   "time": "2021-07-17T09:00:00",
+   "max_rain_mm_3h": 1.1,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 10,
+   "time": "2021-07-17T10:00:00",
+   "max_rain_mm_3h": 1.6,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 11,
+   "time": "2021-07-17T11:00:00",
+   "max_rain_mm_3h": 2.4,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 12,
+   "time": "2021-07-17T12:00:00",
+   "max_rain_mm_3h": 3.5,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 13,
+   "time": "2021-07-17T13:00:00",
+   "max_rain_mm_3h": 5.0,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 14,
+   "time": "2021-07-17T14:00:00",
+   "max_rain_mm_3h": 6.9,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 15,
+   "time": "2021-07-17T15:00:00",
+   "max_rain_mm_3h": 9.3,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 16,
+   "time": "2021-07-17T16:00:00",
+   "max_rain_mm_3h": 12.3,
+   "max_risk": 1,
+   "flooded_cells": 0,
+   "alert_text": "YELLOW: moderate to heavy rain. Stay updated."
+  },
+  {
+   "hour": 17,
+   "time": "2021-07-17T17:00:00",
+   "max_rain_mm_3h": 16.0,
+   "max_risk": 1,
+   "flooded_cells": 0,
+   "alert_text": "YELLOW: moderate to heavy rain. Stay updated."
+  },
+  {
+   "hour": 18,
+   "time": "2021-07-17T18:00:00",
+   "max_rain_mm_3h": 20.6,
+   "max_risk": 1,
+   "flooded_cells": 0,
+   "alert_text": "YELLOW: moderate to heavy rain. Stay updated."
+  },
+  {
+   "hour": 19,
+   "time": "2021-07-17T19:00:00",
+   "max_rain_mm_3h": 26.2,
+   "max_risk": 2,
+   "flooded_cells": 1,
+   "alert_text": "ORANGE ALERT: very heavy rain likely. Avoid low-lying roads and underpasses."
+  },
+  {
+   "hour": 20,
+   "time": "2021-07-17T20:00:00",
+   "max_rain_mm_3h": 32.6,
+   "max_risk": 2,
+   "flooded_cells": 3,
+   "alert_text": "ORANGE ALERT: very heavy rain likely. Avoid low-lying roads and underpasses."
+  },
+  {
+   "hour": 21,
+   "time": "2021-07-17T21:00:00",
+   "max_rain_mm_3h": 39.7,
+   "max_risk": 2,
+   "flooded_cells": 5,
+   "alert_text": "ORANGE ALERT: very heavy rain likely. Avoid low-lying roads and underpasses."
+  },
+  {
+   "hour": 22,
+   "time": "2021-07-17T22:00:00",
+   "max_rain_mm_3h": 47.3,
+   "max_risk": 2,
+   "flooded_cells": 6,
+   "alert_text": "ORANGE ALERT: very heavy rain likely. Avoid low-lying roads and underpasses."
+  },
+  {
+   "hour": 23,
+   "time": "2021-07-17T23:00:00",
+   "max_rain_mm_3h": 55.1,
+   "max_risk": 3,
+   "flooded_cells": 11,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 24,
+   "time": "2021-07-18T00:00:00",
+   "max_rain_mm_3h": 62.8,
+   "max_risk": 3,
+   "flooded_cells": 14,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 25,
+   "time": "2021-07-18T01:00:00",
+   "max_rain_mm_3h": 70.0,
+   "max_risk": 3,
+   "flooded_cells": 18,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 26,
+   "time": "2021-07-18T02:00:00",
+   "max_rain_mm_3h": 76.4,
+   "max_risk": 3,
+   "flooded_cells": 20,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 27,
+   "time": "2021-07-18T03:00:00",
+   "max_rain_mm_3h": 81.5,
+   "max_risk": 3,
+   "flooded_cells": 22,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 28,
+   "time": "2021-07-18T04:00:00",
+   "max_rain_mm_3h": 85.1,
+   "max_risk": 3,
+   "flooded_cells": 23,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 29,
+   "time": "2021-07-18T05:00:00",
+   "max_rain_mm_3h": 87.0,
+   "max_risk": 3,
+   "flooded_cells": 23,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 30,
+   "time": "2021-07-18T06:00:00",
+   "max_rain_mm_3h": 86.9,
+   "max_risk": 3,
+   "flooded_cells": 23,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 31,
+   "time": "2021-07-18T07:00:00",
+   "max_rain_mm_3h": 85.7,
+   "max_risk": 3,
+   "flooded_cells": 23,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 32,
+   "time": "2021-07-18T08:00:00",
+   "max_rain_mm_3h": 84.1,
+   "max_risk": 3,
+   "flooded_cells": 21,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 33,
+   "time": "2021-07-18T09:00:00",
+   "max_rain_mm_3h": 80.8,
+   "max_risk": 3,
+   "flooded_cells": 20,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 34,
+   "time": "2021-07-18T10:00:00",
+   "max_rain_mm_3h": 75.9,
+   "max_risk": 3,
+   "flooded_cells": 18,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 35,
+   "time": "2021-07-18T11:00:00",
+   "max_rain_mm_3h": 69.7,
+   "max_risk": 3,
+   "flooded_cells": 16,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 36,
+   "time": "2021-07-18T12:00:00",
+   "max_rain_mm_3h": 62.7,
+   "max_risk": 3,
+   "flooded_cells": 10,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 37,
+   "time": "2021-07-18T13:00:00",
+   "max_rain_mm_3h": 55.1,
+   "max_risk": 3,
+   "flooded_cells": 6,
+   "alert_text": "RED ALERT: extremely heavy rain expected in next 3 hours. Move to higher ground."
+  },
+  {
+   "hour": 38,
+   "time": "2021-07-18T14:00:00",
+   "max_rain_mm_3h": 47.4,
+   "max_risk": 2,
+   "flooded_cells": 0,
+   "alert_text": "ORANGE ALERT: very heavy rain likely. Avoid low-lying roads and underpasses."
+  },
+  {
+   "hour": 39,
+   "time": "2021-07-18T15:00:00",
+   "max_rain_mm_3h": 39.9,
+   "max_risk": 2,
+   "flooded_cells": 0,
+   "alert_text": "ORANGE ALERT: very heavy rain likely. Avoid low-lying roads and underpasses."
+  },
+  {
+   "hour": 40,
+   "time": "2021-07-18T16:00:00",
+   "max_rain_mm_3h": 32.9,
+   "max_risk": 2,
+   "flooded_cells": 0,
+   "alert_text": "ORANGE ALERT: very heavy rain likely. Avoid low-lying roads and underpasses."
+  },
+  {
+   "hour": 41,
+   "time": "2021-07-18T17:00:00",
+   "max_rain_mm_3h": 26.5,
+   "max_risk": 2,
+   "flooded_cells": 0,
+   "alert_text": "ORANGE ALERT: very heavy rain likely. Avoid low-lying roads and underpasses."
+  },
+  {
+   "hour": 42,
+   "time": "2021-07-18T18:00:00",
+   "max_rain_mm_3h": 20.9,
+   "max_risk": 1,
+   "flooded_cells": 0,
+   "alert_text": "YELLOW: moderate to heavy rain. Stay updated."
+  },
+  {
+   "hour": 43,
+   "time": "2021-07-18T19:00:00",
+   "max_rain_mm_3h": 16.1,
+   "max_risk": 1,
+   "flooded_cells": 0,
+   "alert_text": "YELLOW: moderate to heavy rain. Stay updated."
+  },
+  {
+   "hour": 44,
+   "time": "2021-07-18T20:00:00",
+   "max_rain_mm_3h": 12.1,
+   "max_risk": 1,
+   "flooded_cells": 0,
+   "alert_text": "YELLOW: moderate to heavy rain. Stay updated."
+  },
+  {
+   "hour": 45,
+   "time": "2021-07-18T21:00:00",
+   "max_rain_mm_3h": 9.2,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 46,
+   "time": "2021-07-18T22:00:00",
+   "max_rain_mm_3h": 6.8,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  },
+  {
+   "hour": 47,
+   "time": "2021-07-18T23:00:00",
+   "max_rain_mm_3h": 4.9,
+   "max_risk": 0,
+   "flooded_cells": 0,
+   "alert_text": "No significant rain expected."
+  }
+ ]
+}

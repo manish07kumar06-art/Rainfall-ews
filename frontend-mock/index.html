@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rainfall EWS - quick mock UI</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; }
+  #map { height: calc(100vh - 120px); }
+  #bar { height: 120px; box-sizing: border-box; padding: 10px 14px; background: #10202f; color: #fff; }
+  #bar input[type=range] { width: 70%; vertical-align: middle; }
+  #alert { margin-top: 6px; font-weight: 600; }
+  button { padding: 4px 12px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="bar">
+  <button id="play">Play</button>
+  <input id="slider" type="range" min="0" max="0" value="0">
+  <span id="label"></span>
+  <div id="alert"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// Backend address: http://localhost:8000 by default, or add ?api=https://your-backend.onrender.com
+const API = new URLSearchParams(location.search).get("api") || "http://localhost:8000";
+const RISK_COLORS = ["#2ecc71", "#f1c40f", "#e67e22", "#e74c3c"];
+const FLOOD_COLORS = { low: "#9ecae1", medium: "#3182bd", high: "#08306b" };
+
+const map = L.map("map").setView([19.1, 72.9], 10);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
+let riskLayer, floodLayer, timeline;
+
+async function show(h) {
+  const [risk, flood] = await Promise.all([
+    fetch(`${API}/risk/${h}`).then(r => r.json()),
+    fetch(`${API}/flood/${h}`).then(r => r.json()),
+  ]);
+  if (riskLayer) map.removeLayer(riskLayer);
+  if (floodLayer) map.removeLayer(floodLayer);
+  riskLayer = L.geoJSON(risk, {
+    style: f => ({ color: "#555", weight: 0.5,
+      fillColor: RISK_COLORS[f.properties.risk_level],
+      fillOpacity: f.properties.risk_level === 0 ? 0.08 : 0.45 }),
+  }).bindTooltip(l => `Rain (3h): ${l.feature.properties.rain_mm_3h} mm`).addTo(map);
+  floodLayer = L.geoJSON(flood, {
+    style: f => ({ color: FLOOD_COLORS[f.properties.depth_class], weight: 1,
+      fillColor: FLOOD_COLORS[f.properties.depth_class], fillOpacity: 0.7 }),
+  }).addTo(map);
+  const t = timeline.hours[h];
+  document.getElementById("label").textContent =
+    `${t.time.replace("T", " ")}  |  max rain ${t.max_rain_mm_3h} mm/3h  |  flooded cells ${t.flooded_cells}`;
+  document.getElementById("alert").textContent = t.alert_text;
+}
+
+(async () => {
+  timeline = await fetch(`${API}/timeline`).then(r => r.json());
+  const slider = document.getElementById("slider");
+  slider.max = timeline.hours.length - 1;
+  slider.oninput = () => show(+slider.value);
+  let timer = null;
+  document.getElementById("play").onclick = e => {
+    if (timer) { clearInterval(timer); timer = null; e.target.textContent = "Play"; return; }
+    e.target.textContent = "Pause";
+    timer = setInterval(() => {
+      slider.value = (+slider.value + 1) % timeline.hours.length;
+      show(+slider.value);
+    }, 700);
+  };
+  show(0);
+})();
+</script>
+</body>
+</html>
