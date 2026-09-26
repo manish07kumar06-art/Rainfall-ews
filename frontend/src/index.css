@@ -1,35 +1,9 @@
-*,
-*::before,
-*::after {
+* {
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
+html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-}
-
-body {
-  background: #071018;
-  color: #e8f1f7;
-  font-family: Manrope, system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-button,
-input,
-label {
-  font-family: inherit;
-}
-
-button {
-  appearance: none;
-}
-
-#root {
-  isolation: isolate;
 }

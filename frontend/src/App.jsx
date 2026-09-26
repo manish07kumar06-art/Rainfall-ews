@@ -3,83 +3,80 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 
+// Change this if your backend runs somewhere other than localhost:8000
 const API = "http://localhost:8000";
 
-const RISK_COLORS = ["#3dd68c", "#f5c542", "#f08a3a", "#e24b4b"];
-const RISK_OPACITY = [0.08, 0.38, 0.62, 0.86];
+const RISK_COLORS = ["#2ecc71", "#f1c40f", "#e67e22", "#c0392b"];
+const RISK_OPACITY = [0.06, 0.35, 0.6, 0.85];
 const RISK_LABELS = ["Low", "Moderate", "High", "Severe"];
-const FLOOD_COLORS = { low: "#8ecae6", medium: "#219ebc", high: "#023047" };
+const FLOOD_COLORS = { low: "#9ecae1", medium: "#3182bd", high: "#08306b" };
 
-function formatStamp(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso.replace("T", " ");
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+// Planned features - honestly labeled as NOT YET LIVE. Shown to communicate vision
+// without claiming any of this works in the current prototype.
+const ROADMAP = [
+  {
+    title: "Doppler radar + satellite fusion",
+    desc: "Ingest raw IMD Doppler radar and INSAT-3D imagery directly, instead of reanalysis/IMERG data, for faster and more precise storm-cell tracking.",
+  },
+  {
+    title: "CCTV as virtual sensors",
+    desc: "A computer-vision model reading existing traffic cameras to estimate real-time water depth from submerged tyres/streetlights, self-calibrating the flood model.",
+  },
+  {
+    title: "Cascading failure engine",
+    desc: "A graph model over power substations, hospitals and roads to predict knock-on failures (e.g. a flooded substation cutting power to a hospital).",
+  },
+  {
+    title: '"What-if" scenario simulator',
+    desc: "Let city planners test interventions - drain cleaning, pump failures - and see the predicted change in flooding before it happens.",
+  },
+  {
+    title: "Bhashini voice alerts",
+    desc: "Automatic local-language voice/SMS warnings for areas with low smartphone or English literacy, via the Government of India's Bhashini API.",
+  },
+  {
+    title: "Economic impact tracking",
+    desc: "A validated estimate of losses prevented (rerouted traffic, protected assets), shown to demonstrate ROI to city and disaster-management stakeholders.",
+  },
+];
+
 
 function PrecipChart({ hours, hour, onScrub }) {
-  const W = 960;
-  const H = 88;
-  const PAD_X = 10;
-  const PAD_Y = 10;
+  const W = 900, H = 90, PAD = 6;
   const max = Math.max(1, ...hours.map((h) => h.max_rain_mm_3h));
-  const step = hours.length > 1 ? (W - PAD_X * 2) / (hours.length - 1) : 0;
+  const step = hours.length > 1 ? (W - PAD * 2) / (hours.length - 1) : 0;
 
-  const coords = hours.map((h, i) => {
-    const x = PAD_X + i * step;
-    const y = H - PAD_Y - (h.max_rain_mm_3h / max) * (H - PAD_Y * 2);
-    return { x, y };
-  });
+  const points = hours
+    .map((h, i) => {
+      const x = PAD + i * step;
+      const y = H - PAD - (h.max_rain_mm_3h / max) * (H - PAD * 2);
+      return `${x},${y}`;
+    })
+    .join(" ");
 
-  const line = coords.map((p) => `${p.x},${p.y}`).join(" ");
-  const area = `${PAD_X},${H - PAD_Y} ${line} ${W - PAD_X},${H - PAD_Y}`;
-  const cur = coords[hour] || coords[0];
-
-  const pick = (evt) => {
+  const scrub = (evt) => {
     const rect = evt.currentTarget.getBoundingClientRect();
     const relX = ((evt.clientX - rect.left) / rect.width) * W;
-    const idx = Math.round((relX - PAD_X) / step);
+    const idx = Math.round((relX - PAD) / step);
     onScrub(Math.min(hours.length - 1, Math.max(0, idx)));
   };
+
+  const curX = PAD + hour * step;
 
   return (
     <svg
       className="precip-svg"
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
-      role="img"
-      aria-label="Precipitation timeline"
-      onClick={pick}
-      onMouseMove={(e) => e.buttons === 1 && pick(e)}
+      onClick={scrub}
     >
-      <defs>
-        <linearGradient id="rainFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#4cc9f0" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#4cc9f0" stopOpacity="0.02" />
-        </linearGradient>
-        <linearGradient id="rainStroke" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#7bf0d0" />
-          <stop offset="100%" stopColor="#4cc9f0" />
-        </linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((t) => (
-        <line
-          key={t}
-          x1={PAD_X}
-          x2={W - PAD_X}
-          y1={PAD_Y + t * (H - PAD_Y * 2)}
-          y2={PAD_Y + t * (H - PAD_Y * 2)}
-          className="chart-grid"
-        />
-      ))}
-      <polygon points={area} fill="url(#rainFill)" />
-      <polyline points={line} fill="none" stroke="url(#rainStroke)" strokeWidth="2.4" />
-      <line x1={cur.x} y1={6} x2={cur.x} y2={H - 6} className="chart-playhead" />
-      <circle cx={cur.x} cy={cur.y} r="4.5" className="chart-dot" />
+      <polyline points={points} fill="none" stroke="#3aa0ff" strokeWidth="2" />
+      <polyline
+        points={`${PAD},${H - PAD} ${points} ${W - PAD},${H - PAD}`}
+        fill="#3aa0ff22"
+        stroke="none"
+      />
+      <line x1={curX} y1={0} x2={curX} y2={H} stroke="#e7edf3" strokeWidth="1.5" strokeDasharray="3,3" />
     </svg>
   );
 }
@@ -96,50 +93,40 @@ export default function App() {
   const [hour, setHour] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState(null);
+
+  // Real, working layer toggles - only for data we actually have
   const [showRisk, setShowRisk] = useState(true);
   const [showFlood, setShowFlood] = useState(true);
-  const [basemap, setBasemap] = useState("satellite");
+  const [basemap, setBasemap] = useState("satellite"); // "satellite" | "street"
+  const [showRoadmap, setShowRoadmap] = useState(false);
 
   const TILE_URLS = {
-    satellite:
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    street:
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    street: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
   };
 
+  // Create the map once
   useEffect(() => {
     if (mapRef.current) return;
     mapRef.current = L.map(mapDivRef.current, { zoomControl: false }).setView([19.1, 72.9], 10);
     tileLayerRef.current = L.tileLayer(TILE_URLS.satellite, {
-      attribution: "Tiles © Esri",
+      attribution: "Tiles &copy; Esri",
       maxZoom: 19,
     }).addTo(mapRef.current);
     L.control.zoom({ position: "topright" }).addTo(mapRef.current);
   }, []);
 
+  // Swap basemap when the toggle changes
   useEffect(() => {
     if (!mapRef.current || !tileLayerRef.current) return;
     tileLayerRef.current.setUrl(TILE_URLS[basemap]);
   }, [basemap]);
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 5000);
-    fetch(`${API}/timeline`, { signal: ctrl.signal })
+    fetch(`${API}/timeline`)
       .then((r) => r.json())
-      .then((data) => {
-        setError(null);
-        setTimeline(data);
-      })
-      .catch((e) => {
-        if (e.name === "AbortError") return;
-        setError(`Could not reach the backend at ${API}. Is uvicorn running? (${e.message})`);
-      })
-      .finally(() => clearTimeout(timeout));
-    return () => {
-      clearTimeout(timeout);
-      ctrl.abort();
-    };
+      .then(setTimeline)
+      .catch((e) => setError(`Could not reach the backend at ${API}. Is uvicorn running? (${e.message})`));
   }, []);
 
   useEffect(() => {
@@ -173,6 +160,7 @@ export default function App() {
     });
   }, [hour, timeline]);
 
+  // Show/hide layers instantly when a toggle changes, without refetching
   useEffect(() => {
     if (!mapRef.current || !riskLayerRef.current) return;
     if (showRisk) riskLayerRef.current.addTo(mapRef.current);
@@ -195,208 +183,174 @@ export default function App() {
   }, [playing, timeline]);
 
   const t = timeline ? timeline.hours[hour] : null;
-  const warningLabel = t ? RISK_LABELS[t.max_risk] : "—";
-  const lastHour = timeline ? timeline.hours.length - 1 : 0;
+  const warningLabel = t ? RISK_LABELS[t.max_risk] : "--";
+  const warningClass = t ? `warn-${t.max_risk}` : "";
 
   return (
     <div className="dash">
+      {/* Header */}
       <header className="dash-header">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" width="28" height="28">
-              <path
-                d="M16 3c5 7 11 12 11 18a11 11 0 1 1-22 0c0-6 6-11 11-18z"
-                fill="url(#drop)"
-              />
-              <defs>
-                <linearGradient id="drop" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#7bf0d0" />
-                  <stop offset="100%" stopColor="#3aa0ff" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </span>
-          <div>
-            <div className="brand-name">RainGuard</div>
-            <div className="brand-tag">Heavy rainfall &amp; flood early warning</div>
-          </div>
+          <span className="brand-name">RainGuard</span>
+          <span className="brand-tag">AI HEAVY RAINFALL &amp; FLOOD EARLY WARNING</span>
         </div>
-
         <div className="header-mid">
           {timeline ? (
-            <>
-              <span className="region-chip">{timeline.region}</span>
-              <span className="event-label">{timeline.event}</span>
-            </>
+            <span>{timeline.region} &middot; {timeline.event}</span>
           ) : (
-            <span className="event-label">Connecting to forecast service…</span>
+            <span>Connecting...</span>
           )}
         </div>
-
         <div className={`status-pill ${error ? "status-bad" : "status-ok"}`}>
           <span className="dot" />
-          {error ? "Backend offline" : "Live replay"}
+          {error ? "BACKEND OFFLINE" : "LIVE REPLAY"}
         </div>
+        <button className="roadmap-btn" onClick={() => setShowRoadmap(true)}>
+          Roadmap
+        </button>
       </header>
 
+      {showRoadmap && (
+        <div className="roadmap-overlay" onClick={() => setShowRoadmap(false)}>
+          <div className="roadmap-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="roadmap-modal-header">
+              <div>
+                <div className="roadmap-modal-title">Planned - Phase 2</div>
+                <div className="roadmap-modal-sub">
+                  Not live in this prototype. Shown to communicate the full vision honestly.
+                </div>
+              </div>
+              <button className="roadmap-close" onClick={() => setShowRoadmap(false)}>&times;</button>
+            </div>
+            <div className="roadmap-grid">
+              {ROADMAP.map((item) => (
+                <div className="roadmap-card" key={item.title}>
+                  <div className="roadmap-card-badge">PLANNED - NOT YET LIVE</div>
+                  <div className="roadmap-card-title">{item.title}</div>
+                  <div className="roadmap-card-desc">{item.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Layers sidebar + map + floating panels */}
       <div className="dash-row">
         <aside className="layers-panel">
-          <section className="side-block">
-            <div className="layers-title">Data layers</div>
-            <label className="switch-row">
-              <span>
-                <strong>Rain risk grid</strong>
-                <small>3-hour accumulation cells</small>
-              </span>
-              <input
-                type="checkbox"
-                checked={showRisk}
-                onChange={(e) => setShowRisk(e.target.checked)}
-              />
-              <span className="switch" />
-            </label>
-            <label className="switch-row">
-              <span>
-                <strong>Flood zones</strong>
-                <small>Predicted inundation outlines</small>
-              </span>
-              <input
-                type="checkbox"
-                checked={showFlood}
-                onChange={(e) => setShowFlood(e.target.checked)}
-              />
-              <span className="switch" />
-            </label>
-          </section>
+          <div className="layers-title">DATA LAYERS</div>
+          <label className="layer-toggle">
+            <input type="checkbox" checked={showRisk} onChange={(e) => setShowRisk(e.target.checked)} />
+            Rain risk grid
+          </label>
+          <label className="layer-toggle">
+            <input type="checkbox" checked={showFlood} onChange={(e) => setShowFlood(e.target.checked)} />
+            Predicted flood zones
+          </label>
 
-          <section className="side-block">
-            <div className="layers-title">Basemap</div>
-            <div className="segment">
-              <button
-                type="button"
-                className={basemap === "satellite" ? "on" : ""}
-                onClick={() => setBasemap("satellite")}
-              >
-                Satellite
-              </button>
-              <button
-                type="button"
-                className={basemap === "street" ? "on" : ""}
-                onClick={() => setBasemap("street")}
-              >
-                Streets
-              </button>
-            </div>
-          </section>
-
-          <section className="side-block legend-block">
-            <div className="layers-title">Legend</div>
-            <div className="legend-kicker">Rain risk</div>
-            {RISK_LABELS.map((label, i) => (
-              <div className="legend-row" key={label}>
-                <span className="swatch" style={{ background: RISK_COLORS[i] }} />
-                {label}
-              </div>
-            ))}
-            <div className="legend-kicker" style={{ marginTop: 12 }}>
-              Flood depth
-            </div>
-            {Object.entries(FLOOD_COLORS).map(([cls, color]) => (
-              <div className="legend-row" key={cls}>
-                <span className="swatch outline" style={{ borderColor: color }} />
-                {cls}
-              </div>
-            ))}
-          </section>
+          <div className="layers-title" style={{ marginTop: 14 }}>BASEMAP</div>
+          <label className="layer-toggle">
+            <input
+              type="radio"
+              name="basemap"
+              checked={basemap === "satellite"}
+              onChange={() => setBasemap("satellite")}
+            />
+            Satellite imagery
+          </label>
+          <label className="layer-toggle">
+            <input
+              type="radio"
+              name="basemap"
+              checked={basemap === "street"}
+              onChange={() => setBasemap("street")}
+            />
+            Street map
+          </label>
         </aside>
 
         <div className="dash-body">
           <div ref={mapDivRef} className="map" />
 
-          {error && <div className="map-error">{error}</div>}
+        {error && <div className="map-error">{error}</div>}
 
-          {timeline && t && (
-            <div className="kpi-strip">
-              <div className="kpi">
-                <div className="kpi-label">Valid time</div>
-                <div className="kpi-value kpi-time">{formatStamp(t.time)}</div>
+        {timeline && (
+          <div className="stat-card">
+            <div className="stat-card-title">{timeline.region.toUpperCase()}</div>
+            <div className="stat-card-sub">{t.time.replace("T", " ")}</div>
+
+            <div className="stat-row">
+              <div className="stat-box">
+                <div className="stat-label">MAX RAIN (3H)</div>
+                <div className="stat-value">{t.max_rain_mm_3h} mm</div>
               </div>
-              <div className="kpi">
-                <div className="kpi-label">Max rain (3h)</div>
-                <div className="kpi-value">
-                  {t.max_rain_mm_3h}
-                  <span className="unit">mm</span>
-                </div>
-              </div>
-              <div className="kpi">
-                <div className="kpi-label">Warning</div>
-                <div className={`kpi-value warn-${t.max_risk}`}>{warningLabel}</div>
-              </div>
-              <div className="kpi">
-                <div className="kpi-label">Flooded cells</div>
-                <div className="kpi-value">{t.flooded_cells}</div>
+              <div className="stat-box">
+                <div className="stat-label">WARNING STATUS</div>
+                <div className={`stat-value ${warningClass}`}>{warningLabel}</div>
               </div>
             </div>
-          )}
 
-          {t && (
-            <div className={`alert-banner warn-${t.max_risk}`}>
-              <span className="alert-kicker">Advisory</span>
-              <p>{t.alert_text}</p>
+            <div className="stat-row single">
+              <div className="stat-box">
+                <div className="stat-label">PREDICTED FLOODED CELLS</div>
+                <div className="stat-value">{t.flooded_cells}</div>
+              </div>
             </div>
-          )}
+
+            <div className="stat-alert">{t.alert_text}</div>
+          </div>
+        )}
+
+        {/* Legend */}
+        <div className="legend">
+          <div className="legend-title">Rain risk</div>
+          {RISK_LABELS.map((label, i) => (
+            <div className="legend-row" key={label}>
+              <span className="swatch" style={{ background: RISK_COLORS[i] }} />
+              {label}
+            </div>
+          ))}
+          <div className="legend-title" style={{ marginTop: 8 }}>Flood depth</div>
+          {Object.entries(FLOOD_COLORS).map(([cls, color]) => (
+            <div className="legend-row" key={cls}>
+              <span className="swatch outline" style={{ borderColor: color }} />
+              {cls}
+            </div>
+          ))}
+        </div>
         </div>
       </div>
 
-      <footer className="dock">
-        {timeline && t ? (
-          <>
-            <div className="dock-head">
-              <div>
-                <div className="chart-bar-title">Precipitation timeline</div>
-                <div className="chart-bar-hint">Click or drag to scrub hours</div>
-              </div>
-              <div className="dock-meta">
-                Hour {hour} / {lastHour}
-                <span>·</span>
-                {t.max_rain_mm_3h} mm
-              </div>
-            </div>
-            <PrecipChart hours={timeline.hours} hour={hour} onScrub={setHour} />
-            <div className="timebar">
-              <button
-                className="play-btn"
-                type="button"
-                onClick={() => setPlaying((p) => !p)}
-                aria-label={playing ? "Pause replay" : "Play replay"}
-              >
-                {playing ? (
-                  <svg viewBox="0 0 24 24" width="16" height="16">
-                    <rect x="6" y="5" width="4" height="14" rx="1" />
-                    <rect x="14" y="5" width="4" height="14" rx="1" />
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" width="16" height="16">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                )}
-                {playing ? "Pause" : "Play"}
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={lastHour}
-                value={hour}
-                onChange={(e) => setHour(+e.target.value)}
-                aria-label="Forecast hour"
-              />
-              <span className="label">{formatStamp(t.time)}</span>
-            </div>
-          </>
+      {/* Precipitation timeline chart */}
+      {timeline && (
+        <div className="chart-bar">
+          <div className="chart-bar-title">
+            PRECIPITATION TIMELINE &middot; drag or click to scrub
+          </div>
+          <PrecipChart hours={timeline.hours} hour={hour} onScrub={setHour} />
+        </div>
+      )}
+
+      {/* Timeline bar */}
+      <div className="timebar">
+        {!timeline ? (
+          <span className="label">Loading timeline...</span>
         ) : (
-          <div className="dock-loading">Loading timeline…</div>
+          <>
+            <button className="play-btn" onClick={() => setPlaying((p) => !p)}>
+              {playing ? "Pause" : "Play"}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={timeline.hours.length - 1}
+              value={hour}
+              onChange={(e) => setHour(+e.target.value)}
+            />
+            <span className="label">Hour {hour} / {timeline.hours.length - 1}</span>
+          </>
         )}
-      </footer>
+      </div>
     </div>
   );
 }
