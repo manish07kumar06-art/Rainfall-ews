@@ -1,0 +1,43 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: system-ui, sans-serif;
+}
+
+.map {
+  flex: 1;
+}
+
+.bar {
+  height: 120px;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  background: #10202f;
+  color: #fff;
+}
+
+.bar input[type="range"] {
+  width: 60%;
+  vertical-align: middle;
+  margin: 0 10px;
+}
+
+.label {
+  font-size: 14px;
+}
+
+.alert {
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-family: system-ui, sans-serif;
+  padding: 20px;
+  text-align: center;
+}
