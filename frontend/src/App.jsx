@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "./App.css";
 
 // Change this if your backend runs somewhere other than localhost:8000
-const API = "http://localhost:8000";
+const API_BASE = "http://localhost:8000";
 
 const RISK_COLORS = ["#2ecc71", "#f1c40f", "#e67e22", "#c0392b"];
 const RISK_OPACITY = [0.06, 0.35, 0.6, 0.85];
@@ -99,6 +99,9 @@ export default function App() {
   const [showFlood, setShowFlood] = useState(true);
   const [basemap, setBasemap] = useState("satellite"); // "satellite" | "street"
   const [showRoadmap, setShowRoadmap] = useState(false);
+  const [mode, setMode] = useState("live"); // "live" | "replay"
+
+  const API = `${API_BASE}/${mode}`;
 
   const TILE_URLS = {
     satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -123,11 +126,17 @@ export default function App() {
   }, [basemap]);
 
   useEffect(() => {
+    setError(null);
+    setTimeline(null);
+    setHour(0);
     fetch(`${API}/timeline`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status} - have you run the ${mode} data step yet?`);
+        return r.json();
+      })
       .then(setTimeline)
-      .catch((e) => setError(`Could not reach the backend at ${API}. Is uvicorn running? (${e.message})`));
-  }, []);
+      .catch((e) => setError(`Could not load ${mode} data from ${API}. ${e.message}`));
+  }, [mode]);
 
   useEffect(() => {
     if (!timeline || !mapRef.current) return;
@@ -201,9 +210,17 @@ export default function App() {
             <span>Connecting...</span>
           )}
         </div>
+        <div className="mode-toggle">
+          <button className={mode === "live" ? "mode-btn active" : "mode-btn"} onClick={() => setMode("live")}>
+            Live Forecast
+          </button>
+          <button className={mode === "replay" ? "mode-btn active" : "mode-btn"} onClick={() => setMode("replay")}>
+            2021 Event Replay
+          </button>
+        </div>
         <div className={`status-pill ${error ? "status-bad" : "status-ok"}`}>
           <span className="dot" />
-          {error ? "BACKEND OFFLINE" : "LIVE REPLAY"}
+          {error ? "NO DATA" : mode === "live" ? "LIVE FORECAST" : "HISTORICAL REPLAY"}
         </div>
         <button className="roadmap-btn" onClick={() => setShowRoadmap(true)}>
           Roadmap
