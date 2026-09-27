@@ -194,6 +194,9 @@ export default function App() {
   const t = timeline ? timeline.hours[hour] : null;
   const warningLabel = t ? RISK_LABELS[t.max_risk] : "--";
   const warningClass = t ? `warn-${t.max_risk}` : "";
+  const isDaily = timeline?.granularity === "daily";
+  const unitLabel = isDaily ? "Day" : "Hour";
+  const rainLabel = isDaily ? "rain (24h)" : "max rain (3h)";
 
   return (
     <div className="dash">
@@ -298,7 +301,7 @@ export default function App() {
 
             <div className="stat-row">
               <div className="stat-box">
-                <div className="stat-label">MAX RAIN (3H)</div>
+                <div className="stat-label">{rainLabel.toUpperCase()}</div>
                 <div className="stat-value">{t.max_rain_mm_3h} mm</div>
               </div>
               <div className="stat-box">
@@ -315,6 +318,13 @@ export default function App() {
             </div>
 
             <div className="stat-alert">{t.alert_text}</div>
+
+            {timeline.spatial_note && (
+              <div className="stat-honesty-note">{timeline.spatial_note}</div>
+            )}
+            {timeline.flood_note && (
+              <div className="stat-honesty-note">{timeline.flood_note}</div>
+            )}
           </div>
         )}
 
@@ -364,7 +374,7 @@ export default function App() {
               value={hour}
               onChange={(e) => setHour(+e.target.value)}
             />
-            <span className="label">Hour {hour} / {timeline.hours.length - 1}</span>
+            <span className="label">{unitLabel} {hour} / {timeline.hours.length - 1} - {t.time}</span>
           </>
         )}
       </div>
