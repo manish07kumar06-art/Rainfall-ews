@@ -1,35 +1,53 @@
-# Rainfall Early Warning + Inundation Prototype (SIH)
+# RainGuard — rainfall early warning + city impact twin (SIH)
 
-Starter kit. Everything here runs on MOCK data first so the whole team can work in parallel.
+This is a **B2G command dashboard**, not a consumer weather app. Rainfall is
+screened nationally and forecast for Mumbai; **inundation, blocked roads,
+power-cut recommendations, ambulance reroutes, CCTV virtual gauges, and
+what-if planning** are computed on a hyperlocal Mumbai twin.
+
+Data catalogue (IMD, DWR, INSAT-3D, DEM, Bhashini): [`docs/DATA_SOURCES.md`](docs/DATA_SOURCES.md).
 
 ## Folder map
-- `backend/`        FastAPI app + `data/` (files that follow the data contract)
-- `data-pipeline/`  scripts: mock data generator, real data download
-- `frontend-mock/`  one-file map UI (reference). The frontend person builds the React version.
-- `docs/`           architecture diagram, deck notes
+- `backend/`        FastAPI + Mumbai impact engine (`city_mumbai.py`, `impact_engine.py`)
+- `data-pipeline/`  IMD training, live fetch, data-access checklist
+- `frontend/`       React command UI (Vite + Leaflet)
+- `models/`         trained LightGBM pickles
+- `docs/`           data sources and deck notes
 
-## Data contract (do not change without telling everyone)
-| Endpoint | File | Key fields |
-|---|---|---|
-| GET /timeline | timeline.json | hours[], each: hour, time, max_rain_mm_3h, max_risk, flooded_cells, alert_text |
-| GET /risk/{hour} | risk_{hour}.geojson | properties: risk_level (0-3), rain_mm_3h |
-| GET /flood/{hour} | flood_{hour}.geojson | properties: depth_class (low / medium / high) |
+## API
+| Endpoint | What it is |
+|---|---|
+| GET `/replay\|live/timeline` | Rain timeline |
+| GET `/replay\|live/risk/{hour}` | Rain risk grid |
+| GET `/impact/snapshot?mode=&hour=` | Depths (m/ft), blocked roads, cascade, CCTV, ROI, Bhashini alerts |
+| POST `/impact/simulate` | What-if: drain cleaning, pump failure, extra rain |
+| GET `/metrics` | Mumbai + national model scores |
 
-## Run it locally (5 minutes)
+## Run it locally
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate      Mac/Linux: source .venv/bin/activate
+# Windows: .venv\Scripts\activate
 pip install -r backend/requirements.txt
 python data-pipeline/make_mock_data.py
 uvicorn backend.main:app --reload --port 8000
 ```
-Open http://localhost:8000/docs to test the API, then double-click `frontend-mock/index.html`.
-(If the map is blank, open the browser console: it is almost always a wrong API address.)
 
-## Real pipeline (after the mock works)
+Frontend:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the Vite URL. The UI talks to `http://localhost:8000`.
+
+## Train
 ```bash
 pip install -r data-pipeline/requirements.txt
-python data-pipeline/01_download_era5.py
+python data-pipeline/07_data_access.py          # what files you already have
+python data-pipeline/05_ingest_imd_and_train.py # Mumbai (keep this hyperlocal)
+python data-pipeline/06_train_national.py       # India screen only
+python data-pipeline/04_live_fetch_predict.py   # live forecast files
 ```
 
 ## Deploy backend on Render

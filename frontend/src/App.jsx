@@ -1,51 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
-
-// Change this if your backend runs somewhere other than localhost:8000
-const API_BASE = "http://localhost:8000";
+import {
+  fetchMetrics,
+  fetchRisk,
+  fetchSnapshot,
+  fetchTimeline,
+  simulateImpact,
+} from "./api";
 
 const RISK_COLORS = ["#2ecc71", "#f1c40f", "#e67e22", "#c0392b"];
-const RISK_OPACITY = [0.06, 0.35, 0.6, 0.85];
+const RISK_OPACITY = [0.05, 0.28, 0.48, 0.7];
 const RISK_LABELS = ["Low", "Moderate", "High", "Severe"];
-const FLOOD_COLORS = { low: "#9ecae1", medium: "#3182bd", high: "#08306b" };
+const FLOOD_FILL = { low: "#7ec8e3", medium: "#2b6cb0", high: "#1a365d" };
 
-// Planned features - honestly labeled as NOT YET LIVE. Shown to communicate vision
-// without claiming any of this works in the current prototype.
-const ROADMAP = [
-  {
-    title: "Doppler radar + satellite fusion",
-    desc: "Ingest raw IMD Doppler radar and INSAT-3D imagery directly, instead of reanalysis/IMERG data, for faster and more precise storm-cell tracking.",
-  },
-  {
-    title: "CCTV as virtual sensors",
-    desc: "A computer-vision model reading existing traffic cameras to estimate real-time water depth from submerged tyres/streetlights, self-calibrating the flood model.",
-  },
-  {
-    title: "Cascading failure engine",
-    desc: "A graph model over power substations, hospitals and roads to predict knock-on failures (e.g. a flooded substation cutting power to a hospital).",
-  },
-  {
-    title: '"What-if" scenario simulator',
-    desc: "Let city planners test interventions - drain cleaning, pump failures - and see the predicted change in flooding before it happens.",
-  },
-  {
-    title: "Bhashini voice alerts",
-    desc: "Automatic local-language voice/SMS warnings for areas with low smartphone or English literacy, via the Government of India's Bhashini API.",
-  },
-  {
-    title: "Economic impact tracking",
-    desc: "A validated estimate of losses prevented (rerouted traffic, protected assets), shown to demonstrate ROI to city and disaster-management stakeholders.",
-  },
-];
-
+function inrCr(n) {
+  if (n == null) return "—";
+  return `₹ ${Number(n).toFixed(2)} Cr`;
+}
 
 function PrecipChart({ hours, hour, onScrub }) {
-  const W = 900, H = 90, PAD = 6;
+  const W = 900,
+    H = 78,
+    PAD = 6;
   const max = Math.max(1, ...hours.map((h) => h.max_rain_mm_3h));
   const step = hours.length > 1 ? (W - PAD * 2) / (hours.length - 1) : 0;
-
   const points = hours
     .map((h, i) => {
       const x = PAD + i * step;
@@ -53,27 +33,19 @@ function PrecipChart({ hours, hour, onScrub }) {
       return `${x},${y}`;
     })
     .join(" ");
-
   const scrub = (evt) => {
     const rect = evt.currentTarget.getBoundingClientRect();
     const relX = ((evt.clientX - rect.left) / rect.width) * W;
     const idx = Math.round((relX - PAD) / step);
     onScrub(Math.min(hours.length - 1, Math.max(0, idx)));
   };
-
   const curX = PAD + hour * step;
-
   return (
-    <svg
-      className="precip-svg"
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="none"
-      onClick={scrub}
-    >
-      <polyline points={points} fill="none" stroke="#3aa0ff" strokeWidth="2" />
+    <svg className="precip-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" onClick={scrub}>
+      <polyline points={points} fill="none" stroke="#5ec8ff" strokeWidth="2" />
       <polyline
         points={`${PAD},${H - PAD} ${points} ${W - PAD},${H - PAD}`}
-        fill="#3aa0ff22"
+        fill="#5ec8ff22"
         stroke="none"
       />
       <line x1={curX} y1={0} x2={curX} y2={H} stroke="#e7edf3" strokeWidth="1.5" strokeDasharray="3,3" />
@@ -81,11 +53,19 @@ function PrecipChart({ hours, hour, onScrub }) {
   );
 }
 
+function RoiTicker({ cr }) {
+  return (
+    <div className="roi-ticker" title="Planning estimate of loss avoided by early power cuts and reroutes">
+      <span className="roi-kicker">LOSS PREVENTED</span>
+      <span className="roi-value">{inrCr(cr)}</span>
+    </div>
+  );
+}
+
 export default function App() {
   const mapDivRef = useRef(null);
   const mapRef = useRef(null);
-  const riskLayerRef = useRef(null);
-  const floodLayerRef = useRef(null);
+  const layersRef = useRef({});
   const tileLayerRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -93,278 +73,579 @@ export default function App() {
   const [hour, setHour] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState(null);
-
-  // Real, working layer toggles - only for data we actually have
+  const [mode, setMode] = useState("replay");
+  const [basemap, setBasemap] = useState("street");
   const [showRisk, setShowRisk] = useState(true);
   const [showFlood, setShowFlood] = useState(true);
-  const [basemap, setBasemap] = useState("satellite"); // "satellite" | "street"
-  const [showRoadmap, setShowRoadmap] = useState(false);
-  const [mode, setMode] = useState("live"); // "live" | "replay"
+  const [showRoads, setShowRoads] = useState(true);
+  const [showAssets, setShowAssets] = useState(true);
+  const [showCctv, setShowCctv] = useState(true);
+  const [showRoutes, setShowRoutes] = useState(true);
+  const [snapshot, setSnapshot] = useState(null);
+  const [metrics, setMetrics] = useState(null);
+  const [tab, setTab] = useState("impact");
+  const [lang, setLang] = useState("en");
+  const [scenarioOn, setScenarioOn] = useState(false);
+  const [drain, setDrain] = useState(1);
+  const [extraRain, setExtraRain] = useState(0);
+  const [failPump3, setFailPump3] = useState(false);
+  const [simulating, setSimulating] = useState(false);
 
-  const API = `${API_BASE}/${mode}`;
-
-  const TILE_URLS = {
-    satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    street: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+  const TILES = {
+    satellite:
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    street:
+      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
   };
 
-  // Create the map once
   useEffect(() => {
     if (mapRef.current) return;
-    mapRef.current = L.map(mapDivRef.current, { zoomControl: false }).setView([19.1, 72.9], 10);
-    tileLayerRef.current = L.tileLayer(TILE_URLS.satellite, {
-      attribution: "Tiles &copy; Esri",
+    mapRef.current = L.map(mapDivRef.current, { zoomControl: false }).setView([19.08, 72.88], 11);
+    tileLayerRef.current = L.tileLayer(TILES.street, {
+      attribution: "&copy; OSM &copy; CARTO",
       maxZoom: 19,
     }).addTo(mapRef.current);
-    L.control.zoom({ position: "topright" }).addTo(mapRef.current);
+    L.control.zoom({ position: "bottomright" }).addTo(mapRef.current);
   }, []);
 
-  // Swap basemap when the toggle changes
   useEffect(() => {
-    if (!mapRef.current || !tileLayerRef.current) return;
-    tileLayerRef.current.setUrl(TILE_URLS[basemap]);
+    if (!tileLayerRef.current) return;
+    tileLayerRef.current.setUrl(TILES[basemap]);
   }, [basemap]);
 
   useEffect(() => {
     setError(null);
     setTimeline(null);
+    setSnapshot(null);
     setHour(0);
-    fetch(`${API}/timeline`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status} - have you run the ${mode} data step yet?`);
-        return r.json();
-      })
+    setScenarioOn(false);
+    fetchTimeline(mode)
       .then(setTimeline)
-      .catch((e) => setError(`Could not load ${mode} data from ${API}. ${e.message}`));
+      .catch((e) => setError(`Could not load ${mode} timeline. ${e.message}`));
+    fetchMetrics().then(setMetrics).catch(() => {});
   }, [mode]);
 
   useEffect(() => {
-    if (!timeline || !mapRef.current) return;
-    Promise.all([
-      fetch(`${API}/risk/${hour}`).then((r) => r.json()),
-      fetch(`${API}/flood/${hour}`).then((r) => r.json()),
-    ]).then(([risk, flood]) => {
-      if (riskLayerRef.current) mapRef.current.removeLayer(riskLayerRef.current);
-      if (floodLayerRef.current) mapRef.current.removeLayer(floodLayerRef.current);
-
-      riskLayerRef.current = L.geoJSON(risk, {
-        style: (f) => ({
-          color: "#0009",
-          weight: 0.5,
-          fillColor: RISK_COLORS[f.properties.risk_level],
-          fillOpacity: RISK_OPACITY[f.properties.risk_level],
-        }),
-      }).bindTooltip((l) => `Rain (3h): ${l.feature.properties.rain_mm_3h} mm`);
-      if (showRisk) riskLayerRef.current.addTo(mapRef.current);
-
-      floodLayerRef.current = L.geoJSON(flood, {
-        style: (f) => ({
-          color: FLOOD_COLORS[f.properties.depth_class],
-          weight: 3,
-          fillOpacity: 0,
-          dashArray: f.properties.depth_class === "high" ? null : "4",
-        }),
+    if (!timeline) return;
+    let cancelled = false;
+    Promise.all([fetchRisk(mode, hour), fetchSnapshot(mode, hour)])
+      .then(([risk, snap]) => {
+        if (cancelled) return;
+        setSnapshot(snap);
+        drawMap(risk, snap);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
       });
-      if (showFlood) floodLayerRef.current.addTo(mapRef.current);
+    return () => {
+      cancelled = true;
+    };
+  }, [hour, timeline, mode]);
+
+  function clearDynamic() {
+    const map = mapRef.current;
+    if (!map) return;
+    Object.values(layersRef.current).forEach((ly) => {
+      if (ly && map.hasLayer(ly)) map.removeLayer(ly);
     });
-  }, [hour, timeline]);
+    layersRef.current = {};
+  }
 
-  // Show/hide layers instantly when a toggle changes, without refetching
-  useEffect(() => {
-    if (!mapRef.current || !riskLayerRef.current) return;
-    if (showRisk) riskLayerRef.current.addTo(mapRef.current);
-    else mapRef.current.removeLayer(riskLayerRef.current);
-  }, [showRisk]);
+  function drawMap(risk, snap) {
+    const map = mapRef.current;
+    if (!map) return;
+    clearDynamic();
+
+    layersRef.current.risk = L.geoJSON(risk, {
+      style: (f) => ({
+        color: "#0006",
+        weight: 0.4,
+        fillColor: RISK_COLORS[f.properties.risk_level] || "#2ecc71",
+        fillOpacity: RISK_OPACITY[f.properties.risk_level] ?? 0.1,
+      }),
+    }).bindTooltip((l) => `Rain: ${l.feature.properties.rain_mm_3h} mm`);
+    if (showRisk) layersRef.current.risk.addTo(map);
+
+    if (snap?.flood) {
+      layersRef.current.flood = L.geoJSON(snap.flood, {
+        style: (f) => ({
+          color: FLOOD_FILL[f.properties.depth_class],
+          weight: 0,
+          fillColor: FLOOD_FILL[f.properties.depth_class],
+          fillOpacity: f.properties.depth_class === "high" ? 0.72 : 0.5,
+        }),
+      }).bindTooltip(
+        (l) =>
+          `${l.feature.properties.depth_m} m · ${l.feature.properties.depth_ft} ft water`
+      );
+      if (showFlood) layersRef.current.flood.addTo(map);
+    }
+
+    if (snap?.roads) {
+      layersRef.current.roads = L.geoJSON(
+        {
+          type: "FeatureCollection",
+          features: snap.roads.map((r) => ({
+            type: "Feature",
+            properties: r,
+            geometry: r.geometry,
+          })),
+        },
+        {
+          style: (f) => ({
+            color: f.properties.blocked ? "#ff4d4d" : "#3dd68c",
+            weight: f.properties.blocked ? 5 : 2.5,
+            opacity: 0.95,
+            dashArray: f.properties.blocked ? "6,6" : null,
+          }),
+        }
+      ).bindTooltip(
+        (l) =>
+          `${l.feature.properties.name}<br/>${l.feature.properties.depth_m} m · ${
+            l.feature.properties.blocked ? "BLOCKED — do not dispatch" : "passable"
+          }`
+      );
+      if (showRoads) layersRef.current.roads.addTo(map);
+    }
+
+    const assetGroup = L.layerGroup();
+    (snap?.assets || []).forEach((a) => {
+      const color =
+        a.type === "hospital" ? "#ff6b8a" : a.type === "transformer" ? "#ffd166" : "#5ec8ff";
+      const m = L.circleMarker([a.lat, a.lon], {
+        radius: a.triggered ? 9 : 6,
+        color,
+        weight: 2,
+        fillColor: color,
+        fillOpacity: a.triggered ? 0.95 : 0.55,
+      }).bindPopup(
+        `<strong>${a.name}</strong><br/>${a.type}<br/>Water ${a.depth_m} m / critical ${a.critical_depth_m} m<br/>${a.action}`
+      );
+      assetGroup.addLayer(m);
+    });
+    layersRef.current.assets = assetGroup;
+    if (showAssets) assetGroup.addTo(map);
+
+    const camGroup = L.layerGroup();
+    (snap?.cctv || []).forEach((c) => {
+      const color = c.status === "flooded" ? "#ff4d4d" : c.status === "wet" ? "#f1c40f" : "#9ae6b4";
+      const m = L.circleMarker([c.lat, c.lon], {
+        radius: 5,
+        color,
+        fillColor: color,
+        fillOpacity: 0.9,
+        weight: 1,
+      }).bindPopup(
+        `<strong>${c.name}</strong><br/>Virtual sensor depth ${c.water_depth_m} m<br/>Tyre submerged ${c.tyre_submerged_frac}×`
+      );
+      camGroup.addLayer(m);
+    });
+    layersRef.current.cctv = camGroup;
+    if (showCctv) camGroup.addTo(map);
+
+    const routeGroup = L.layerGroup();
+    (snap?.ambulance || []).forEach((m) => {
+      const g = m.recommended?.geometry;
+      if (!g || !m.recommended?.ok) return;
+      L.geoJSON(g, {
+        style: { color: "#b794f4", weight: 3, opacity: 0.9 },
+      })
+        .bindTooltip(`${m.label} · ${m.recommended.minutes} min`)
+        .addTo(routeGroup);
+    });
+    layersRef.current.routes = routeGroup;
+    if (showRoutes) routeGroup.addTo(map);
+  }
 
   useEffect(() => {
-    if (!mapRef.current || !floodLayerRef.current) return;
-    if (showFlood) floodLayerRef.current.addTo(mapRef.current);
-    else mapRef.current.removeLayer(floodLayerRef.current);
-  }, [showFlood]);
+    const map = mapRef.current;
+    const Lrs = layersRef.current;
+    if (!map) return;
+    const apply = (key, on) => {
+      if (!Lrs[key]) return;
+      if (on) Lrs[key].addTo(map);
+      else map.removeLayer(Lrs[key]);
+    };
+    apply("risk", showRisk);
+    apply("flood", showFlood);
+    apply("roads", showRoads);
+    apply("assets", showAssets);
+    apply("cctv", showCctv);
+    apply("routes", showRoutes);
+  }, [showRisk, showFlood, showRoads, showAssets, showCctv, showRoutes]);
 
   useEffect(() => {
     if (playing && timeline) {
       timerRef.current = setInterval(() => {
         setHour((h) => (h + 1) % timeline.hours.length);
-      }, 700);
+        setScenarioOn(false);
+      }, 850);
     }
     return () => clearInterval(timerRef.current);
   }, [playing, timeline]);
 
   const t = timeline ? timeline.hours[hour] : null;
-  const warningLabel = t ? RISK_LABELS[t.max_risk] : "--";
-  const warningClass = t ? `warn-${t.max_risk}` : "";
-  const isDaily = timeline?.granularity === "daily";
-  const unitLabel = isDaily ? "Day" : "Hour";
-  const rainLabel = isDaily ? "rain (24h)" : "max rain (3h)";
+  const headline = snapshot?.headline;
+  const roiCr = snapshot?.roi?.display_inr_cr ?? 0;
+
+  const runSim = async () => {
+    setSimulating(true);
+    setError(null);
+    try {
+      const snap = await simulateImpact({
+        mode,
+        hour,
+        drain_clean_factor: drain,
+        failed_pumps: failPump3 ? ["pump_3"] : [],
+        extra_rain_mm: extraRain,
+      });
+      const risk = await fetchRisk(mode, hour);
+      setSnapshot(snap);
+      setScenarioOn(true);
+      drawMap(risk, snap);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  const resetSim = async () => {
+    setDrain(1);
+    setExtraRain(0);
+    setFailPump3(false);
+    setScenarioOn(false);
+    const [risk, snap] = await Promise.all([fetchRisk(mode, hour), fetchSnapshot(mode, hour)]);
+    setSnapshot(snap);
+    drawMap(risk, snap);
+  };
+
+  const blocked = (snapshot?.roads || []).filter((r) => r.blocked);
+  const cuts = (snapshot?.assets || []).filter((a) => a.recommend_power_cut);
+
+  const alertText = useMemo(() => {
+    const a = snapshot?.alerts?.[0];
+    if (!a) return headline?.narrative;
+    return a[lang] || a.en;
+  }, [snapshot, lang, headline]);
 
   return (
-    <div className="dash">
-      {/* Header */}
-      <header className="dash-header">
+    <div className="ops">
+      <header className="ops-top">
         <div className="brand">
-          <span className="brand-name">RainGuard</span>
-          <span className="brand-tag">AI HEAVY RAINFALL &amp; FLOOD EARLY WARNING</span>
+          <div className="brand-name">RainGuard</div>
+          <div className="brand-tag">B2G IMPACT TWIN · MUMBAI</div>
         </div>
-        <div className="header-mid">
+        <div className="ops-meta">
           {timeline ? (
-            <span>{timeline.region} &middot; {timeline.event}</span>
+            <>
+              <span>{timeline.region}</span>
+              <span className="sep">·</span>
+              <span>{t?.time?.replace("T", " ")}</span>
+            </>
           ) : (
-            <span>Connecting...</span>
+            "Connecting command feed…"
           )}
         </div>
         <div className="mode-toggle">
-          <button className={mode === "live" ? "mode-btn active" : "mode-btn"} onClick={() => setMode("live")}>
-            Live Forecast
+          <button className={mode === "live" ? "on" : ""} onClick={() => setMode("live")}>
+            Live
           </button>
-          <button className={mode === "replay" ? "mode-btn active" : "mode-btn"} onClick={() => setMode("replay")}>
-            2021 Event Replay
+          <button className={mode === "replay" ? "on" : ""} onClick={() => setMode("replay")}>
+            2021 replay
           </button>
         </div>
-        <div className={`status-pill ${error ? "status-bad" : "status-ok"}`}>
-          <span className="dot" />
-          {error ? "NO DATA" : mode === "live" ? "LIVE FORECAST" : "HISTORICAL REPLAY"}
+        <div className={`pill ${error ? "bad" : "ok"}`}>
+          <i />
+          {error ? "FEED DOWN" : scenarioOn ? "WHAT-IF SCENARIO" : mode === "live" ? "LIVE" : "REPLAY"}
         </div>
-        <button className="roadmap-btn" onClick={() => setShowRoadmap(true)}>
-          Roadmap
-        </button>
+        <RoiTicker cr={roiCr} />
       </header>
 
-      {showRoadmap && (
-        <div className="roadmap-overlay" onClick={() => setShowRoadmap(false)}>
-          <div className="roadmap-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="roadmap-modal-header">
-              <div>
-                <div className="roadmap-modal-title">Planned - Phase 2</div>
-                <div className="roadmap-modal-sub">
-                  Not live in this prototype. Shown to communicate the full vision honestly.
-                </div>
+      <div className="ops-main">
+        <aside className="rail">
+          <div className="rail-h">LAYERS</div>
+          {[
+            ["Rain risk", showRisk, setShowRisk],
+            ["Inundation depth", showFlood, setShowFlood],
+            ["Roads / dispatch", showRoads, setShowRoads],
+            ["Critical assets", showAssets, setShowAssets],
+            ["CCTV virtual sensors", showCctv, setShowCctv],
+            ["Ambulance corridors", showRoutes, setShowRoutes],
+          ].map(([label, val, set]) => (
+            <label key={label} className="chk">
+              <input type="checkbox" checked={val} onChange={(e) => set(e.target.checked)} />
+              {label}
+            </label>
+          ))}
+          <div className="rail-h">BASEMAP</div>
+          <label className="chk">
+            <input type="radio" checked={basemap === "street"} onChange={() => setBasemap("street")} />
+            Dark streets
+          </label>
+          <label className="chk">
+            <input type="radio" checked={basemap === "satellite"} onChange={() => setBasemap("satellite")} />
+            Satellite
+          </label>
+          {metrics?.mumbai && (
+            <>
+              <div className="rail-h">CITY MODEL</div>
+              <div className="metric">
+                Mumbai CSI <b>{metrics.mumbai.model.csi}</b>
+                <span> vs persistence {metrics.mumbai.persistence_baseline.csi}</span>
               </div>
-              <button className="roadmap-close" onClick={() => setShowRoadmap(false)}>&times;</button>
+            </>
+          )}
+          {metrics?.national && (
+            <div className="metric dim">
+              National screen CSI {metrics.national.model.csi} · {metrics.national.n_locations} cells
             </div>
-            <div className="roadmap-grid">
-              {ROADMAP.map((item) => (
-                <div className="roadmap-card" key={item.title}>
-                  <div className="roadmap-card-badge">PLANNED - NOT YET LIVE</div>
-                  <div className="roadmap-card-title">{item.title}</div>
-                  <div className="roadmap-card-desc">{item.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Layers sidebar + map + floating panels */}
-      <div className="dash-row">
-        <aside className="layers-panel">
-          <div className="layers-title">DATA LAYERS</div>
-          <label className="layer-toggle">
-            <input type="checkbox" checked={showRisk} onChange={(e) => setShowRisk(e.target.checked)} />
-            Rain risk grid
-          </label>
-          <label className="layer-toggle">
-            <input type="checkbox" checked={showFlood} onChange={(e) => setShowFlood(e.target.checked)} />
-            Predicted flood zones
-          </label>
-
-          <div className="layers-title" style={{ marginTop: 14 }}>BASEMAP</div>
-          <label className="layer-toggle">
-            <input
-              type="radio"
-              name="basemap"
-              checked={basemap === "satellite"}
-              onChange={() => setBasemap("satellite")}
-            />
-            Satellite imagery
-          </label>
-          <label className="layer-toggle">
-            <input
-              type="radio"
-              name="basemap"
-              checked={basemap === "street"}
-              onChange={() => setBasemap("street")}
-            />
-            Street map
-          </label>
+          )}
         </aside>
 
-        <div className="dash-body">
+        <div className="stage">
           <div ref={mapDivRef} className="map" />
-
-        {error && <div className="map-error">{error}</div>}
-
-        {timeline && (
-          <div className="stat-card">
-            <div className="stat-card-title">{timeline.region.toUpperCase()}</div>
-            <div className="stat-card-sub">{t.time.replace("T", " ")}</div>
-
-            <div className="stat-row">
-              <div className="stat-box">
-                <div className="stat-label">{rainLabel.toUpperCase()}</div>
-                <div className="stat-value">{t.max_rain_mm_3h} mm</div>
-              </div>
-              <div className="stat-box">
-                <div className="stat-label">WARNING STATUS</div>
-                <div className={`stat-value ${warningClass}`}>{warningLabel}</div>
-              </div>
+          {error && <div className="banner err">{error}</div>}
+          {headline && (
+            <div className="banner story">
+              <div className="story-kicker">IMPACT, NOT JUST RAIN</div>
+              <div className="story-body">{headline.narrative}</div>
             </div>
-
-            <div className="stat-row single">
-              <div className="stat-box">
-                <div className="stat-label">PREDICTED FLOODED CELLS</div>
-                <div className="stat-value">{t.flooded_cells}</div>
+          )}
+          <div className="legend">
+            <div className="lg-h">Rain</div>
+            {RISK_LABELS.map((lb, i) => (
+              <div className="lg-row" key={lb}>
+                <i style={{ background: RISK_COLORS[i] }} />
+                {lb}
               </div>
+            ))}
+            <div className="lg-h">Water</div>
+            {Object.entries(FLOOD_FILL).map(([k, c]) => (
+              <div className="lg-row" key={k}>
+                <i style={{ background: c }} />
+                {k}
+              </div>
+            ))}
+            <div className="lg-row">
+              <i style={{ background: "#ff4d4d" }} />
+              blocked road
             </div>
-
-            <div className="stat-alert">{t.alert_text}</div>
-
-            {timeline.spatial_note && (
-              <div className="stat-honesty-note">{timeline.spatial_note}</div>
-            )}
-            {timeline.flood_note && (
-              <div className="stat-honesty-note">{timeline.flood_note}</div>
-            )}
           </div>
-        )}
+        </div>
 
-        {/* Legend */}
-        <div className="legend">
-          <div className="legend-title">Rain risk</div>
-          {RISK_LABELS.map((label, i) => (
-            <div className="legend-row" key={label}>
-              <span className="swatch" style={{ background: RISK_COLORS[i] }} />
-              {label}
+        <aside className="side">
+          <div className="tabs">
+            {["impact", "dispatch", "cctv", "simulate", "alerts"].map((id) => (
+              <button key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>
+                {id}
+              </button>
+            ))}
+          </div>
+
+          {tab === "impact" && snapshot && (
+            <div className="pane">
+              <div className="kpis">
+                <div>
+                  <span>Peak depth</span>
+                  <b>
+                    {snapshot.max_depth_m} m
+                    <em>{snapshot.max_depth_ft} ft</em>
+                  </b>
+                </div>
+                <div>
+                  <span>Blocked roads</span>
+                  <b>{snapshot.blocked_roads}</b>
+                </div>
+                <div>
+                  <span>Power cuts</span>
+                  <b>{snapshot.power_cut_recommended}</b>
+                </div>
+              </div>
+              <div className="h">Cascade</div>
+              <ul className="feed">
+                {(snapshot.cascade || []).slice(0, 8).map((ev, i) => (
+                  <li key={i} className={ev.severity}>
+                    <strong>{ev.title}</strong>
+                    <p>{ev.detail}</p>
+                  </li>
+                ))}
+                {!(snapshot.cascade || []).length && <li className="muted">No knock-on failures at this hour.</li>}
+              </ul>
+              <div className="h">Hotspots (now → +90 min)</div>
+              <ul className="hot">
+                {(snapshot.hotspots || []).slice(0, 6).map((h) => (
+                  <li key={h.id}>
+                    <div>
+                      {h.name}
+                      {h.subway ? <em> subway</em> : null}
+                    </div>
+                    <span>
+                      {h.now_depth_ft} ft → {h.in_90min_depth_ft} ft
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          ))}
-          <div className="legend-title" style={{ marginTop: 8 }}>Flood depth</div>
-          {Object.entries(FLOOD_COLORS).map(([cls, color]) => (
-            <div className="legend-row" key={cls}>
-              <span className="swatch outline" style={{ borderColor: color }} />
-              {cls}
+          )}
+
+          {tab === "dispatch" && snapshot && (
+            <div className="pane">
+              <div className="h">Do not dispatch</div>
+              <ul className="feed">
+                {blocked.map((r) => (
+                  <li key={r.id} className="high">
+                    <strong>{r.name}</strong>
+                    <p>
+                      {r.depth_m} m ({r.depth_ft} ft) — ambulances and delivery stay off this corridor.
+                    </p>
+                  </li>
+                ))}
+                {!blocked.length && <li className="muted">All monitored corridors passable.</li>}
+              </ul>
+              <div className="h">Power</div>
+              <ul className="feed">
+                {cuts.map((a) => (
+                  <li key={a.id} className="critical">
+                    <strong>{a.name}</strong>
+                    <p>
+                      Water {a.depth_m} m vs cut-off {a.critical_depth_m} m. {a.action}
+                    </p>
+                  </li>
+                ))}
+                {!cuts.length && <li className="muted">No feeder at critical depth.</li>}
+              </ul>
+              <div className="h">Ambulance graph</div>
+              <ul className="feed">
+                {(snapshot.ambulance || []).map((m) => (
+                  <li key={m.id} className={m.recommended?.ok ? "" : "critical"}>
+                    <strong>{m.label}</strong>
+                    <p>
+                      {m.recommended?.ok
+                        ? `${m.recommended.minutes} min${m.rerouted ? " · REROUTED off flooded edges" : " · clear"}`
+                        : m.recommended?.reason}
+                    </p>
+                  </li>
+                ))}
+              </ul>
             </div>
-          ))}
-        </div>
-        </div>
+          )}
+
+          {tab === "cctv" && snapshot && (
+            <div className="pane">
+              <p className="fine">
+                City cameras as virtual flood gauges. Production writes YOLOv8 tyre/streetlight ratios into this
+                same contract; the live demo fuses inundation at camera pose so the command UI is real.
+              </p>
+              <ul className="cams">
+                {(snapshot.cctv || []).map((c) => (
+                  <li key={c.id} className={c.status}>
+                    <div className="cam-top">
+                      <b>{c.name.replace("Traffic cam · ", "")}</b>
+                      <span>{c.status}</span>
+                    </div>
+                    <div className="cam-bar">
+                      <i style={{ width: `${Math.min(100, c.tyre_submerged_frac * 70)}%` }} />
+                    </div>
+                    <div className="cam-meta">
+                      {c.water_depth_m} m · tyre {c.tyre_submerged_frac}× {c.self_calibrate ? "· calibrating model" : ""}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {tab === "simulate" && (
+            <div className="pane">
+              <p className="fine">
+                Digital twin for BMC / disaster cells. Same physics as the live inundation field — change drains,
+                kill a pump, add a 100 mm cell.
+              </p>
+              <label className="slider">
+                Drain cleaning ×{drain.toFixed(2)}
+                <input
+                  type="range"
+                  min="0.6"
+                  max="1.6"
+                  step="0.05"
+                  value={drain}
+                  onChange={(e) => setDrain(+e.target.value)}
+                />
+                <span>{drain < 1 ? "clogged" : drain > 1.05 ? "cleaned" : "as-is"}</span>
+              </label>
+              <label className="slider">
+                Extra rain {extraRain} mm
+                <input
+                  type="range"
+                  min="0"
+                  max="120"
+                  step="5"
+                  value={extraRain}
+                  onChange={(e) => setExtraRain(+e.target.value)}
+                />
+              </label>
+              <label className="chk">
+                <input type="checkbox" checked={failPump3} onChange={(e) => setFailPump3(e.target.checked)} />
+                Pump 3 (Kurla nalla) failed
+              </label>
+              <div className="sim-actions">
+                <button className="primary" disabled={simulating} onClick={runSim}>
+                  {simulating ? "Running…" : "Run what-if"}
+                </button>
+                <button onClick={resetSim}>Reset</button>
+              </div>
+              {scenarioOn && snapshot && (
+                <div className="scenario-box">
+                  Peak {snapshot.max_depth_m} m · blocked {snapshot.blocked_roads} · {inrCr(snapshot.roi.display_inr_cr)}{" "}
+                  still protected under this plan.
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "alerts" && snapshot && (
+            <div className="pane">
+              <div className="lang">
+                {["en", "hi", "mr"].map((l) => (
+                  <button key={l} className={lang === l ? "on" : ""} onClick={() => setLang(l)}>
+                    {l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <p className="fine">Bhashini-ready copy. Voice/SMS hook is this JSON — not a consumer weather app.</p>
+              <div className="voice">{alertText}</div>
+              <ul className="feed">
+                {(snapshot.alerts || []).map((a) => (
+                  <li key={a.id} className={a.severity === "red" ? "critical" : "high"}>
+                    <strong>{a.id}</strong>
+                    <p>{a[lang] || a.en}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="h">ROI breakdown</div>
+              <ul className="hot">
+                {(snapshot.roi?.lines || []).map((ln, i) => (
+                  <li key={i}>
+                    <div>{ln.label}</div>
+                    <span>₹ {(ln.inr / 1e7).toFixed(2)} Cr</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="fine">{snapshot.roi?.note}</p>
+            </div>
+          )}
+        </aside>
       </div>
 
-      {/* Precipitation timeline chart */}
       {timeline && (
-        <div className="chart-bar">
-          <div className="chart-bar-title">
-            PRECIPITATION TIMELINE &middot; drag or click to scrub
+        <div className="ops-bottom">
+          <div className="chart-wrap">
+            <div className="chart-h">PRECIPITATION · click to scrub time</div>
+            <PrecipChart hours={timeline.hours} hour={hour} onScrub={(i) => { setHour(i); setScenarioOn(false); }} />
           </div>
-          <PrecipChart hours={timeline.hours} hour={hour} onScrub={setHour} />
-        </div>
-      )}
-
-      {/* Timeline bar */}
-      <div className="timebar">
-        {!timeline ? (
-          <span className="label">Loading timeline...</span>
-        ) : (
-          <>
-            <button className="play-btn" onClick={() => setPlaying((p) => !p)}>
+          <div className="timebar">
+            <button className="play" onClick={() => setPlaying((p) => !p)}>
               {playing ? "Pause" : "Play"}
             </button>
             <input
@@ -372,12 +653,17 @@ export default function App() {
               min={0}
               max={timeline.hours.length - 1}
               value={hour}
-              onChange={(e) => setHour(+e.target.value)}
+              onChange={(e) => {
+                setHour(+e.target.value);
+                setScenarioOn(false);
+              }}
             />
-            <span className="label">{unitLabel} {hour} / {timeline.hours.length - 1} - {t.time}</span>
-          </>
-        )}
-      </div>
+            <span>
+              {hour}/{timeline.hours.length - 1} · {t?.max_rain_mm_3h} mm
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

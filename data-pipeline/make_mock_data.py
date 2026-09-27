@@ -25,11 +25,12 @@ LATS, LONS = frange(LAT0, LAT1, STEP), frange(LON0, LON1, STEP)
 
 
 def rain_mm_3h(lat, lon, h):
-    """Fake moving rain blob that peaks around hour 30."""
-    cx = LON0 + (LON1 - LON0) * (0.2 + 0.6 * h / HOURS)
-    cy = LAT0 + (LAT1 - LAT0) * 0.5
-    d2 = ((lon - cx) / 0.12) ** 2 + ((lat - cy) / 0.18) ** 2
-    peak = 90 * math.exp(-(((h - 30) / 10) ** 2))
+    """Moving cell along the western flood belt (Grant Road → Andheri subway)."""
+    t = h / HOURS
+    cx = 72.844 + 0.025 * math.sin(t * 3.1)
+    cy = 18.97 + 0.20 * t
+    d2 = ((lon - cx) / 0.085) ** 2 + ((lat - cy) / 0.13) ** 2
+    peak = 95 * math.exp(-(((h - 30) / 9) ** 2))
     return round(peak * math.exp(-d2), 1)
 
 

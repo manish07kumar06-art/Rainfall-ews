@@ -1,0 +1,56 @@
+{
+  "scope": "India, ~1 degree grid",
+  "target": "next-day rainfall >= 64.5 mm",
+  "data_source": "IMD 0.25 degree gridded daily rainfall, 2015-2023",
+  "n_locations": 309,
+  "n_rows": 902461,
+  "train_years": "2016-2019",
+  "validation_years": "2020-2021",
+  "test_years": "2022-2023",
+  "n_test_rows": 225133,
+  "positive_rate_test": 0.0062,
+  "feature_count": 50,
+  "best_iteration": 1,
+  "validation_pr_auc": 0.0652,
+  "validation_csi": 0.0951,
+  "tuned_decision_threshold": 0.18,
+  "scale_pos_weight": 161.3917,
+  "selected_model_config": {
+    "num_leaves": 31,
+    "max_depth": 7,
+    "min_child_samples": 20,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "reg_alpha": 0.05,
+    "reg_lambda": 1.0,
+    "min_split_gain": 0.0
+  },
+  "model": {
+    "precision": 0.1092,
+    "recall": 0.4383,
+    "f1": 0.1748,
+    "csi": 0.0958,
+    "pr_auc": 0.0656,
+    "roc_auc": 0.831,
+    "confusion_matrix": [
+      [
+        218755,
+        4984
+      ],
+      [
+        783,
+        611
+      ]
+    ]
+  },
+  "persistence_baseline": {
+    "precision": 0.2396,
+    "recall": 0.2396,
+    "f1": 0.2396,
+    "csi": 0.1361,
+    "pr_auc": 0.1179,
+    "roc_auc": 0.9018
+  },
+  "model_file": "D:\\AppData\\Chrome\\rainfall-ews-starter\\rainfall-ews\\models\\rainfall_lgbm_national_enhanced_v2.pkl",
+  "warning": "Rainfall-only model. It predicts next-day heavy rainfall, not physical inundation."
+}
